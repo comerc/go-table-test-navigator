@@ -2,6 +2,7 @@
   "name": "go-table-test-navigator",
   "publisher": "comerc",
   "displayName": "Go Table Test Navigator",
+  "icon": "images/icon.png",
   "description": "Navigate to specific table test cases in Go",
   "version": "1.0.0",
   "license": "MIT",
