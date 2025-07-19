@@ -19,6 +19,14 @@ This extension requires **BOTH** of the following to work properly:
 - **Smart Detection**: Automatically detects table-driven test cases in Go test files.
 - **Seamless Integration**: Works with VS Code's built-in Test Explorer and Go testing framework.
 
+## Manual Installation
+
+1. Download `golang-go-to-impl-*.vsix` from [latest release](https://github.com/comerc/go-table-test-navigator/releases/latest).
+2. Open Command Palette `Ctrl+Shift+P` (`Cmd+Shift+P` on Mac).
+3. Type ">Extensions: Install from VSIX..." and select the downloaded file.
+
+> Also available on [open-vsx.org](https://open-vsx.org/extension/comerc/go-table-test-navigator)
+
 ## Usage
 
 1. Open a Go project with table-driven tests
