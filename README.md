@@ -6,6 +6,13 @@
 
 A VS Code extension that allows you to navigate directly to specific table test cases in Go files from the Test Explorer.
 
+## ⚠️ Important Requirements
+
+This extension requires **BOTH** of the following to work properly:
+
+1. **Official Go extension** in **Prerelease** mode
+2. **[Go Companion](https://github.com/firelizzard18/exp-vscode-go)** extension installed
+
 ## Features
 
 - **Navigate to Table Test Cases**: Right-click on a table test case in the Test Explorer and select "Go to Table Test Case" to jump directly to the corresponding line in your Go test file.
