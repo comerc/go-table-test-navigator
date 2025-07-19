@@ -1,0 +1,123 @@
+name: Create Release Artifacts
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  create-artifacts:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0  # Fetch all history and tags
+
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: 22
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check latest test status
+      run: |
+        echo "Checking if tests passed on the latest commit..."
+        
+        # Get the latest commit SHA
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # For manual dispatch, get the commit from the specified tag
+          TAG_NAME="${{ github.event.inputs.tag_name }}"
+          echo "Looking for tag: $TAG_NAME"
+          
+          # Check if tag exists
+          if git rev-parse --verify "$TAG_NAME" >/dev/null 2>&1; then
+            COMMIT_SHA=$(git rev-parse "$TAG_NAME")
+          else
+            echo "❌ Tag $TAG_NAME not found"
+            echo "Available tags:"
+            git tag -l | head -10
+            exit 1
+          fi
+        else
+          # For release event, get the commit from the tag
+          COMMIT_SHA=$(git rev-parse "${{ github.ref }}")
+        fi
+        
+        echo "Checking tests for commit: $COMMIT_SHA"
+        
+        # Use GitHub API to check if tests passed for this commit
+        WORKFLOW_RUNS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/actions/workflows/test.yml/runs?head_sha=$COMMIT_SHA&status=completed")
+        
+        # Check if there's a successful test run for this commit
+        SUCCESS_COUNT=$(echo "$WORKFLOW_RUNS" | jq '.workflow_runs | map(select(.conclusion == "success")) | length')
+        
+        if [ "$SUCCESS_COUNT" -gt 0 ]; then
+          echo "✅ Tests passed for commit $COMMIT_SHA"
+        else
+          echo "❌ No successful test runs found for commit $COMMIT_SHA"
+          echo "Please ensure tests pass before creating release artifacts"
+          exit 1
+        fi
+
+    - name: Update version in package.json
+      run: |
+        # Extract version from tag or manual input
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION=${{ github.event.inputs.tag_name }}
+          VERSION=${VERSION#v}  # Remove 'v' prefix if present
+        else
+          VERSION=${GITHUB_REF#refs/tags/v}
+        fi
+        echo "Setting version to $VERSION"
+        
+        # Get current version from package.json
+        CURRENT_VERSION=$(node -p "require('./package.json').version")
+        echo "Current version in package.json: $CURRENT_VERSION"
+        
+        # Only update version if it's different
+        if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+          echo "Updating version from $CURRENT_VERSION to $VERSION"
+          npm version $VERSION --no-git-tag-version
+          
+          # Commit updated package.json back to repository
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json
+          git commit -m "Update version to $VERSION [skip ci]" || exit 0
+          git push origin HEAD:main
+        else
+          echo "Version is already $VERSION, skipping update"
+        fi
+
+    - name: Package extension
+      run: |
+        npx @vscode/vsce@2.32.0 package
+        echo "Generated VSIX files:"
+        ls -la *.vsix
+
+    - name: Find VSIX file
+      id: find_vsix
+      run: |
+        VSIX_FILE=$(ls *.vsix | head -1)
+        echo "Found VSIX file: $VSIX_FILE"
+        echo "vsix_file=$VSIX_FILE" >> $GITHUB_OUTPUT
+        echo "vsix_path=$(pwd)/$VSIX_FILE" >> $GITHUB_OUTPUT
+
+    - name: Upload VSIX to Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ steps.find_vsix.outputs.vsix_path }}
+        tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag_name || github.ref_name }}
+        token: ${{ secrets.GITHUB_TOKEN }} 
