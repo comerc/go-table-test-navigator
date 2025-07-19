@@ -75,3 +75,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 MIT © [comerc](https://github.com/comerc)
+
+## Demo
+
+![](./media/demo.png)
